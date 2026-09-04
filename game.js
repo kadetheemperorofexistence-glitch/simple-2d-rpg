@@ -25,7 +25,8 @@ const CLASS_STATS = {
         critRate: 10,
         icon: '🔮',
         color: '#667eea',
-        spriteColor: '#3498db'
+        spriteColor: '#3498db',
+        manaRegen: 0.5
     },
     rogue: {
         name: 'Rogue',
@@ -47,7 +48,7 @@ const SKILLS = {
         { name: 'Shield Wall', desc: 'Block 50% damage', bonus: '+50% DEF' }
     ],
     mage: [
-        { name: 'Fireball', desc: 'Cast fireball projectile', bonus: '+100% Magic' },
+        { name: 'Fireball', desc: 'Cast fireball projectile (SPACE)', bonus: '+100% Magic' },
         { name: 'Frostbolt', desc: 'Slow enemies with ice', bonus: '-50% Speed' },
         { name: 'Mana Shield', desc: 'Convert mana to health', bonus: '+Mana Regen' }
     ],
@@ -134,7 +135,7 @@ class Projectile {
     }
     
     isFinished() {
-        return this.traveled >= this.maxDistance;
+        return this.traveled >= this.maxDistance || this.x < 0 || this.x > SCREEN_WIDTH || this.y < 0 || this.y > SCREEN_HEIGHT;
     }
 }
 
@@ -199,6 +200,7 @@ class Player {
         this.defense = stats.defense;
         this.critRate = stats.critRate;
         this.magic = stats.magic || 0;
+        this.manaRegen = stats.manaRegen || 0;
         
         // Progression
         this.level = 1;
@@ -294,6 +296,12 @@ class Player {
     
     healDamage(amount) {
         this.health = Math.min(this.maxHealth, this.health + amount);
+    }
+    
+    regenerateMana() {
+        if (this.manaRegen > 0) {
+            this.mana = Math.min(this.maxMana, this.mana + this.manaRegen);
+        }
     }
     
     gainExperience(amount) {
@@ -520,7 +528,9 @@ class Game {
         this.isGameOver = false;
         this.isWon = false;
         this.attackCooldown = 0;
-        this.mousePos = { x: 0, y: 0 };
+        this.mousePos = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT / 2 };
+        this.touchPos = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT / 2 };
+        this.isTouchDevice = false;
         
         this.setupEventListeners();
         this.showClassSelection();
@@ -588,10 +598,29 @@ class Game {
         const menuBtn = document.getElementById('menuBtn');
         if (menuBtn) menuBtn.addEventListener('click', () => this.returnToMenu());
         
-        // Mouse tracking for spell targeting
+        // Mouse tracking for spell targeting (Desktop)
         document.addEventListener('mousemove', (e) => {
-            this.mousePos = { x: e.clientX, y: e.clientY };
+            this.isTouchDevice = false;
+            const canvas = this.canvas;
+            const rect = canvas.getBoundingClientRect();
+            this.mousePos = { 
+                x: Math.max(0, Math.min(e.clientX - rect.left, SCREEN_WIDTH)),
+                y: Math.max(0, Math.min(e.clientY - rect.top, SCREEN_HEIGHT))
+            };
         });
+        
+        // Touch tracking for spell targeting (Mobile)
+        document.addEventListener('touchmove', (e) => {
+            if (!this.player) return;
+            this.isTouchDevice = true;
+            const canvas = this.canvas;
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            this.touchPos = { 
+                x: Math.max(0, Math.min(touch.clientX - rect.left, SCREEN_WIDTH)),
+                y: Math.max(0, Math.min(touch.clientY - rect.top, SCREEN_HEIGHT))
+            };
+        }, false);
         
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
@@ -691,25 +720,24 @@ class Game {
     }
     
     castSpell() {
-        // Get canvas position for accurate spell targeting
-        const canvas = this.canvas;
-        const rect = canvas.getBoundingClientRect();
-        const canvasX = this.mousePos.x - rect.left;
-        const canvasY = this.mousePos.y - rect.top;
+        // Use touch position on mobile, mouse position on desktop
+        const targetPos = this.isTouchDevice ? this.touchPos : this.mousePos;
         
         // Fireball spell
         if (this.player.mana >= 15) {
             const projectile = new Projectile(
                 this.player.x + this.player.width / 2,
                 this.player.y + this.player.height / 2,
-                canvasX,
-                canvasY,
+                targetPos.x,
+                targetPos.y,
                 this.player.magic + 20,
                 'fireball'
             );
             this.projectiles.push(projectile);
             this.player.mana -= 15;
-            this.attackCooldown = 25;
+            console.log('Spell cast! Mana:', this.player.mana);
+        } else {
+            console.log('Not enough mana! Current:', this.player.mana, 'Need: 15');
         }
     }
     
@@ -723,6 +751,11 @@ class Game {
         if (this.isPaused || this.isGameOver || this.isWon) return;
         
         this.handleInput();
+        
+        // Mana regeneration for mage
+        if (this.player.manaRegen) {
+            this.player.regenerateMana();
+        }
         
         if (this.attackCooldown > 0) this.attackCooldown--;
         
@@ -746,7 +779,7 @@ class Game {
             }
             
             // Remove finished projectiles
-            if (proj.isFinished()) {
+            if (i >= 0 && this.projectiles[i] && this.projectiles[i].isFinished()) {
                 this.projectiles.splice(i, 1);
             }
         }
@@ -810,6 +843,38 @@ class Game {
         
         // Draw player
         this.player.draw(this.ctx);
+        
+        // Draw cursor indicator for spell targeting (on mobile, show target circle)
+        if (this.player && this.player.class === 'mage') {
+            const targetPos = this.isTouchDevice ? this.touchPos : this.mousePos;
+            // Draw targeting reticle
+            this.ctx.strokeStyle = 'rgba(255, 107, 53, 0.5)';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.arc(targetPos.x, targetPos.y, 10, 0, Math.PI * 2);
+            this.ctx.stroke();
+            
+            // Draw crosshair
+            this.ctx.beginPath();
+            this.ctx.moveTo(targetPos.x - 15, targetPos.y);
+            this.ctx.lineTo(targetPos.x - 5, targetPos.y);
+            this.ctx.stroke();
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(targetPos.x + 5, targetPos.y);
+            this.ctx.lineTo(targetPos.x + 15, targetPos.y);
+            this.ctx.stroke();
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(targetPos.x, targetPos.y - 15);
+            this.ctx.lineTo(targetPos.x, targetPos.y - 5);
+            this.ctx.stroke();
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(targetPos.x, targetPos.y + 5);
+            this.ctx.lineTo(targetPos.x, targetPos.y + 15);
+            this.ctx.stroke();
+        }
         
         // Draw pause overlay
         if (this.isPaused) {
