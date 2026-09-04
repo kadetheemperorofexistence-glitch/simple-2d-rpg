@@ -1,6 +1,7 @@
 // Game Classes and Constants
 const SCREEN_WIDTH = 1000;
 const SCREEN_HEIGHT = 600;
+const TILE_SIZE = 32;
 
 const CLASS_STATS = {
     warrior: {
@@ -11,7 +12,8 @@ const CLASS_STATS = {
         defense: 15,
         critRate: 5,
         icon: '🛡️',
-        color: '#ff4757'
+        color: '#ff4757',
+        spriteColor: '#e74c3c'
     },
     mage: {
         name: 'Mage',
@@ -22,7 +24,8 @@ const CLASS_STATS = {
         magic: 35,
         critRate: 10,
         icon: '🔮',
-        color: '#667eea'
+        color: '#667eea',
+        spriteColor: '#3498db'
     },
     rogue: {
         name: 'Rogue',
@@ -32,7 +35,8 @@ const CLASS_STATS = {
         defense: 8,
         critRate: 25,
         icon: '🗡️',
-        color: '#ffa502'
+        color: '#ffa502',
+        spriteColor: '#f39c12'
     }
 };
 
@@ -43,8 +47,8 @@ const SKILLS = {
         { name: 'Shield Wall', desc: 'Block 50% damage', bonus: '+50% DEF' }
     ],
     mage: [
-        { name: 'Fireball', desc: 'Deal magic damage in area', bonus: '+100% Magic' },
-        { name: 'Frostbolt', desc: 'Slow enemies', bonus: '-50% Speed' },
+        { name: 'Fireball', desc: 'Cast fireball projectile', bonus: '+100% Magic' },
+        { name: 'Frostbolt', desc: 'Slow enemies with ice', bonus: '-50% Speed' },
         { name: 'Mana Shield', desc: 'Convert mana to health', bonus: '+Mana Regen' }
     ],
     rogue: [
@@ -56,6 +60,123 @@ const SKILLS = {
 
 let gameInstance = null;
 
+// Projectile class for spells
+class Projectile {
+    constructor(x, y, targetX, targetY, damage, type = 'fireball') {
+        this.x = x;
+        this.y = y;
+        this.targetX = targetX;
+        this.targetY = targetY;
+        this.damage = damage;
+        this.type = type;
+        this.speed = 6;
+        this.radius = 8;
+        this.traveled = 0;
+        this.maxDistance = Math.sqrt(Math.pow(targetX - x, 2) + Math.pow(targetY - y, 2));
+        
+        const angle = Math.atan2(targetY - y, targetX - x);
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
+        
+        this.particles = [];
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.traveled += this.speed;
+        
+        // Create particle trail
+        if (Math.random() < 0.7) {
+            this.particles.push(new Particle(this.x, this.y, this.type));
+        }
+        
+        // Remove old particles
+        this.particles = this.particles.filter(p => p.alive);
+    }
+    
+    draw(ctx) {
+        // Draw particles first
+        this.particles.forEach(p => p.draw(ctx));
+        
+        // Draw projectile
+        if (this.type === 'fireball') {
+            ctx.fillStyle = '#ff6b35';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Glow effect
+            ctx.strokeStyle = 'rgba(255, 107, 53, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius + 3, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (this.type === 'frostbolt') {
+            ctx.fillStyle = '#87ceeb';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Frost pattern
+            ctx.strokeStyle = '#4a90e2';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 4; i++) {
+                const angle = (Math.PI * 2 / 4) * i;
+                const x2 = this.x + Math.cos(angle) * this.radius * 1.5;
+                const y2 = this.y + Math.sin(angle) * this.radius * 1.5;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+    }
+    
+    isFinished() {
+        return this.traveled >= this.maxDistance;
+    }
+}
+
+// Particle class for effects
+class Particle {
+    constructor(x, y, type = 'fireball') {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.life = 20;
+        this.maxLife = 20;
+        this.alive = true;
+        
+        this.vx = (Math.random() - 0.5) * 3;
+        this.vy = (Math.random() - 0.5) * 3 - 1;
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life--;
+        if (this.life <= 0) this.alive = false;
+    }
+    
+    draw(ctx) {
+        this.update();
+        const alpha = this.life / this.maxLife;
+        
+        if (this.type === 'fireball') {
+            ctx.fillStyle = `rgba(255, ${Math.floor(107 * alpha)}, ${Math.floor(53 * alpha)}, ${alpha})`;
+        } else if (this.type === 'frostbolt') {
+            ctx.fillStyle = `rgba(135, 206, 235, ${alpha * 0.7})`;
+        } else {
+            ctx.fillStyle = `rgba(200, 200, 200, ${alpha})`;
+        }
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
 class Player {
     constructor(playerClass) {
         const stats = CLASS_STATS[playerClass];
@@ -63,10 +184,11 @@ class Player {
         this.name = `${stats.name} Adventurer`;
         this.x = SCREEN_WIDTH / 2;
         this.y = SCREEN_HEIGHT / 2;
-        this.width = 30;
-        this.height = 30;
+        this.width = 24;
+        this.height = 32;
         this.speed = 4;
         this.color = stats.color;
+        this.spriteColor = stats.spriteColor;
         
         // Stats
         this.maxHealth = stats.health;
@@ -87,16 +209,34 @@ class Player {
         // Equipment
         this.equipment = {};
         this.inventory = [];
+        
+        // Animation
+        this.animFrame = 0;
+        this.lastAttackTime = 0;
     }
     
     draw(ctx) {
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        // Draw player sprite (Terraria style)
+        const tileX = Math.floor(this.x);
+        const tileY = Math.floor(this.y);
         
-        // Draw outline
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
+        // Body
+        ctx.fillStyle = this.spriteColor;
+        ctx.fillRect(tileX + 4, tileY + 4, 16, 16);
+        
+        // Head
+        ctx.fillStyle = '#f4a460';
+        ctx.fillRect(tileX + 6, tileY, 12, 8);
+        
+        // Eyes
+        ctx.fillStyle = '#000';
+        ctx.fillRect(tileX + 8, tileY + 2, 2, 2);
+        ctx.fillRect(tileX + 14, tileY + 2, 2, 2);
+        
+        // Legs
+        ctx.fillStyle = this.spriteColor;
+        ctx.fillRect(tileX + 6, tileY + 20, 4, 8);
+        ctx.fillRect(tileX + 14, tileY + 20, 4, 8);
         
         // Draw health bar above player
         const barWidth = this.width * 2;
@@ -104,10 +244,19 @@ class Player {
         const healthRatio = this.health / this.maxHealth;
         
         ctx.fillStyle = '#333';
-        ctx.fillRect(this.x - barWidth / 4, this.y - 15, barWidth, barHeight);
+        ctx.fillRect(this.x - barWidth / 4, this.y - 20, barWidth, barHeight);
         
         ctx.fillStyle = healthRatio > 0.5 ? '#00ff00' : '#ff4757';
-        ctx.fillRect(this.x - barWidth / 4, this.y - 15, barWidth * healthRatio, barHeight);
+        ctx.fillRect(this.x - barWidth / 4, this.y - 20, barWidth * healthRatio, barHeight);
+        
+        // Draw mana bar
+        if (this.maxMana > 0) {
+            const manaRatio = this.mana / this.maxMana;
+            ctx.fillStyle = '#333';
+            ctx.fillRect(this.x - barWidth / 4, this.y - 14, barWidth, barHeight);
+            ctx.fillStyle = '#667eea';
+            ctx.fillRect(this.x - barWidth / 4, this.y - 14, barWidth * manaRatio, barHeight);
+        }
     }
     
     move(direction, obstacles) {
@@ -165,6 +314,7 @@ class Player {
         this.attack += 8;
         this.defense += 3;
         this.critRate += 2;
+        if (this.magic) this.magic += 5;
     }
     
     isAlive() {
@@ -176,10 +326,10 @@ class Enemy {
     constructor(x, y, level) {
         this.x = x;
         this.y = y;
-        this.width = 25;
-        this.height = 25;
+        this.width = 24;
+        this.height = 32;
         this.speed = 2 + (level * 0.5);
-        this.color = this.getEnemyColor(level);
+        this.spriteColor = this.getEnemyColor(level);
         this.level = level;
         
         // Scale stats with level
@@ -195,31 +345,58 @@ class Enemy {
     }
     
     getEnemyColor(level) {
-        if (level <= 2) return '#ff6b7a';
-        if (level <= 5) return '#ff4757';
-        return '#c41e3a';
+        if (level <= 2) return '#e74c3c';
+        if (level <= 5) return '#c0392b';
+        return '#a93226';
     }
     
     draw(ctx) {
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        // Draw enemy sprite (Terraria style goblin/imp)
+        const tileX = Math.floor(this.x);
+        const tileY = Math.floor(this.y);
         
-        // Draw level
+        // Body
+        ctx.fillStyle = this.spriteColor;
+        ctx.fillRect(tileX + 4, tileY + 8, 16, 16);
+        
+        // Head
+        ctx.fillStyle = this.spriteColor;
+        ctx.fillRect(tileX + 5, tileY, 14, 10);
+        
+        // Eyes (evil looking)
         ctx.fillStyle = '#fff';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.level, this.x + this.width / 2, this.y + this.height / 2 + 3);
+        ctx.fillRect(tileX + 7, tileY + 2, 3, 3);
+        ctx.fillRect(tileX + 14, tileY + 2, 3, 3);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(tileX + 8, tileY + 3, 1, 1);
+        ctx.fillRect(tileX + 15, tileY + 3, 1, 1);
+        
+        // Spikes/horns
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(tileX + 6, tileY - 2, 2, 3);
+        ctx.fillRect(tileX + 16, tileY - 2, 2, 3);
+        
+        // Legs
+        ctx.fillStyle = '#333';
+        ctx.fillRect(tileX + 6, tileY + 24, 4, 6);
+        ctx.fillRect(tileX + 14, tileY + 24, 4, 6);
         
         // Draw health bar
-        const barWidth = this.width * 1.5;
+        const barWidth = this.width * 2;
         const barHeight = 3;
         const healthRatio = this.health / this.maxHealth;
         
         ctx.fillStyle = '#333';
-        ctx.fillRect(this.x - barWidth / 4, this.y - 10, barWidth, barHeight);
+        ctx.fillRect(this.x - barWidth / 4, this.y - 12, barWidth, barHeight);
         
         ctx.fillStyle = '#00ff00';
-        ctx.fillRect(this.x - barWidth / 4, this.y - 10, barWidth * healthRatio, barHeight);
+        ctx.fillRect(this.x - barWidth / 4, this.y - 12, barWidth * healthRatio, barHeight);
+        
+        // Draw level
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 8px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Lv' + this.level, this.x + this.width / 2, this.y + 16);
     }
     
     aiMove(player, obstacles) {
@@ -294,12 +471,39 @@ class Obstacle {
     }
     
     draw(ctx) {
-        ctx.fillStyle = '#555';
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        // Draw Terraria-style stone blocks
+        const tileX = Math.floor(this.x / TILE_SIZE) * TILE_SIZE;
+        const tileY = Math.floor(this.y / TILE_SIZE) * TILE_SIZE;
+        const tilesX = Math.ceil(this.width / TILE_SIZE);
+        const tilesY = Math.ceil(this.height / TILE_SIZE);
         
-        // Add pattern
-        ctx.fillStyle = '#333';
-        ctx.fillRect(this.x + 5, this.y + 5, this.width - 10, this.height - 10);
+        for (let i = 0; i < tilesX; i++) {
+            for (let j = 0; j < tilesY; j++) {
+                const px = tileX + i * TILE_SIZE;
+                const py = tileY + j * TILE_SIZE;
+                
+                // Stone texture
+                ctx.fillStyle = '#7f8c8d';
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                
+                // Details
+                ctx.fillStyle = '#95a5a6';
+                ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                
+                // Cracks for detail
+                ctx.strokeStyle = '#34495e';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(px + 5, py);
+                ctx.lineTo(px + 5, py + TILE_SIZE);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(px, py + 5);
+                ctx.lineTo(px + TILE_SIZE, py + 5);
+                ctx.stroke();
+            }
+        }
     }
 }
 
@@ -310,18 +514,20 @@ class Game {
         this.player = null;
         this.enemies = [];
         this.obstacles = [];
+        this.projectiles = [];
         this.keys = {};
         this.isPaused = false;
         this.isGameOver = false;
         this.isWon = false;
         this.attackCooldown = 0;
+        this.mousePos = { x: 0, y: 0 };
         
         this.setupEventListeners();
         this.showClassSelection();
     }
     
     setupEventListeners() {
-        // Class selection - bind with arrow function to preserve 'this'
+        // Class selection
         document.querySelectorAll('.class-card').forEach(card => {
             card.querySelector('.select-btn').addEventListener('click', (e) => {
                 const classType = card.dataset.class;
@@ -330,7 +536,7 @@ class Game {
             });
         });
         
-        // Menu buttons - use arrow functions to preserve 'this'
+        // Menu buttons
         const statsBtn = document.getElementById('statsBtn');
         if (statsBtn) statsBtn.addEventListener('click', (e) => {
             console.log('Stats clicked');
@@ -382,6 +588,11 @@ class Game {
         const menuBtn = document.getElementById('menuBtn');
         if (menuBtn) menuBtn.addEventListener('click', () => this.returnToMenu());
         
+        // Mouse tracking for spell targeting
+        document.addEventListener('mousemove', (e) => {
+            this.mousePos = { x: e.clientX, y: e.clientY };
+        });
+        
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
             this.keys[e.key.toLowerCase()] = true;
@@ -410,9 +621,11 @@ class Game {
         this.player = new Player(playerClass);
         this.enemies = [];
         this.obstacles = [];
+        this.projectiles = [];
         this.isPaused = false;
         this.isGameOver = false;
         this.isWon = false;
+        this.attackCooldown = 0;
         this.spawnEnemies(5 + this.player.level);
         this.spawnObstacles();
         this.showScreen('gameScreen');
@@ -453,11 +666,19 @@ class Game {
         
         if (keys[' '] && this.attackCooldown === 0) {
             this.playerAttack();
-            this.attackCooldown = 40;
+            this.attackCooldown = 30;
         }
     }
     
     playerAttack() {
+        if (this.player.class === 'mage') {
+            this.castSpell();
+        } else {
+            this.meleeAttack();
+        }
+    }
+    
+    meleeAttack() {
         for (let enemy of this.enemies) {
             if (this.distanceTo(this.player, enemy) < 70) {
                 let damage = this.player.attack;
@@ -466,6 +687,29 @@ class Game {
                 }
                 enemy.takeDamage(damage);
             }
+        }
+    }
+    
+    castSpell() {
+        // Get canvas position for accurate spell targeting
+        const canvas = this.canvas;
+        const rect = canvas.getBoundingClientRect();
+        const canvasX = this.mousePos.x - rect.left;
+        const canvasY = this.mousePos.y - rect.top;
+        
+        // Fireball spell
+        if (this.player.mana >= 15) {
+            const projectile = new Projectile(
+                this.player.x + this.player.width / 2,
+                this.player.y + this.player.height / 2,
+                canvasX,
+                canvasY,
+                this.player.magic + 20,
+                'fireball'
+            );
+            this.projectiles.push(projectile);
+            this.player.mana -= 15;
+            this.attackCooldown = 25;
         }
     }
     
@@ -482,6 +726,32 @@ class Game {
         
         if (this.attackCooldown > 0) this.attackCooldown--;
         
+        // Update projectiles
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const proj = this.projectiles[i];
+            proj.update();
+            
+            // Check projectile collisions with enemies
+            for (let j = this.enemies.length - 1; j >= 0; j--) {
+                const enemy = this.enemies[j];
+                const dx = proj.x - (enemy.x + enemy.width / 2);
+                const dy = proj.y - (enemy.y + enemy.height / 2);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < proj.radius + 15) {
+                    enemy.takeDamage(proj.damage);
+                    this.projectiles.splice(i, 1);
+                    break;
+                }
+            }
+            
+            // Remove finished projectiles
+            if (proj.isFinished()) {
+                this.projectiles.splice(i, 1);
+            }
+        }
+        
+        // Update enemies
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const enemy = this.enemies[i];
             if (!enemy.isAlive()) {
@@ -509,12 +779,31 @@ class Game {
     }
     
     draw() {
-        // Clear canvas
-        this.ctx.fillStyle = '#0a0a15';
+        // Draw background (Terraria dirt)
+        this.ctx.fillStyle = '#8b7355';
         this.ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+        
+        // Draw grid for Terraria feel
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+        this.ctx.lineWidth = 1;
+        for (let x = 0; x < SCREEN_WIDTH; x += TILE_SIZE) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, SCREEN_HEIGHT);
+            this.ctx.stroke();
+        }
+        for (let y = 0; y < SCREEN_HEIGHT; y += TILE_SIZE) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(SCREEN_WIDTH, y);
+            this.ctx.stroke();
+        }
         
         // Draw obstacles
         this.obstacles.forEach(obs => obs.draw(this.ctx));
+        
+        // Draw projectiles
+        this.projectiles.forEach(proj => proj.draw(this.ctx));
         
         // Draw enemies
         this.enemies.forEach(enemy => enemy.draw(this.ctx));
@@ -640,6 +929,7 @@ class Game {
         this.isPaused = false;
         this.player = null;
         this.enemies = [];
+        this.projectiles = [];
         this.showScreen('classScreen');
     }
     
