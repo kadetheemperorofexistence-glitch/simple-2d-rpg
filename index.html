@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple 2D RPG</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚔️ Simple 2D RPG ⚔️</h1>
+            <p>Defeat all enemies to win the game!</p>
+        </div>
+        
+        <div class="game-wrapper">
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+        </div>
+        
+        <div class="controls">
+            <div class="control-section">
+                <h3>Controls</h3>
+                <ul>
+                    <li><strong>Arrow Keys</strong> or <strong>WASD</strong> - Move</li>
+                    <li><strong>Space Bar</strong> - Attack</li>
+                </ul>
+            </div>
+            
+            <div class="stats">
+                <h3>Stats</h3>
+                <div id="stats-content">
+                    <p>Health: <span id="health">100/100</span></p>
+                    <p>Level: <span id="level">1</span></p>
+                    <p>Experience: <span id="experience">0</span></p>
+                    <p>Enemies: <span id="enemies">3</span></p>
+                </div>
+            </div>
+            
+            <div class="info">
+                <h3>Tips</h3>
+                <ul>
+                    <li>🔵 You are the blue square</li>
+                    <li>🔴 Red squares are enemies</li>
+                    <li>⬜ Gray squares are obstacles</li>
+                    <li>Get close to enemies and press SPACE to attack</li>
+                    <li>Level up by defeating enemies!</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <button id="restartBtn">Restart Game</button>
+            <button id="pauseBtn">Pause</button>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html>
