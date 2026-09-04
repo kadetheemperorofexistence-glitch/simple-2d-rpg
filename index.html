@@ -3,57 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple 2D RPG</title>
+    <title>Advanced 2D RPG</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>⚔️ Simple 2D RPG ⚔️</h1>
-            <p>Defeat all enemies to win the game!</p>
-        </div>
-        
-        <div class="game-wrapper">
-            <canvas id="gameCanvas" width="800" height="600"></canvas>
-        </div>
-        
-        <div class="controls">
-            <div class="control-section">
-                <h3>Controls</h3>
-                <ul>
-                    <li><strong>Arrow Keys</strong> or <strong>WASD</strong> - Move</li>
-                    <li><strong>Space Bar</strong> - Attack</li>
-                </ul>
-            </div>
-            
-            <div class="stats">
-                <h3>Stats</h3>
-                <div id="stats-content">
-                    <p>Health: <span id="health">100/100</span></p>
-                    <p>Level: <span id="level">1</span></p>
-                    <p>Experience: <span id="experience">0</span></p>
-                    <p>Enemies: <span id="enemies">3</span></p>
+    <div class="game-container">
+        <!-- Main Game Area -->
+        <div id="gameScreen" class="screen hidden">
+            <div class="hud">
+                <div class="hud-left">
+                    <div class="player-info">
+                        <h3 id="playerName">Player</h3>
+                        <div class="health-bar">
+                            <div id="healthFill" class="health-fill"></div>
+                            <span id="healthText">100/100</span>
+                        </div>
+                        <div class="mana-bar">
+                            <div id="manaFill" class="mana-fill"></div>
+                            <span id="manaText">50/50</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="hud-center">
+                    <canvas id="gameCanvas" width="1000" height="600"></canvas>
+                </div>
+                <div class="hud-right">
+                    <div class="stats-panel">
+                        <p>Level: <span id="hudLevel">1</span></p>
+                        <p>EXP: <span id="hudExp">0</span></p>
+                        <p>Gold: <span id="hudGold">0</span></p>
+                        <p>Enemies: <span id="hudEnemies">0</span></p>
+                    </div>
                 </div>
             </div>
-            
-            <div class="info">
-                <h3>Tips</h3>
-                <ul>
-                    <li>🔵 You are the blue square</li>
-                    <li>🔴 Red squares are enemies</li>
-                    <li>⬜ Gray squares are obstacles</li>
-                    <li>Get close to enemies and press SPACE to attack</li>
-                    <li>Level up by defeating enemies!</li>
-                </ul>
+            <div class="controls-bar">
+                <button id="statsBtn" class="control-btn">📊 Stats</button>
+                <button id="inventoryBtn" class="control-btn">🎒 Inventory</button>
+                <button id="skillsBtn" class="control-btn">⚡ Skills</button>
+                <button id="pauseGameBtn" class="control-btn">⏸ Pause</button>
             </div>
         </div>
-        
-        <div class="buttons">
-            <button id="restartBtn">Restart Game</button>
-            <button id="pauseBtn">Pause</button>
+
+        <!-- Class Selection Screen -->
+        <div id="classScreen" class="screen">
+            <div class="class-selection">
+                <h1>⚔️ Choose Your Class</h1>
+                <p>Select a class to begin your adventure</p>
+                
+                <div class="classes-grid">
+                    <div class="class-card" data-class="warrior">
+                        <div class="class-icon">🛡️</div>
+                        <h2>Warrior</h2>
+                        <p class="class-desc">Tank class with high health and defense</p>
+                        <ul class="class-stats">
+                            <li>❤️ Health: 150</li>
+                            <li>⚔️ Attack: 25</li>
+                            <li>🛡️ Defense: 15</li>
+                            <li>💨 Speed: Normal</li>
+                        </ul>
+                        <button class="select-btn">Select</button>
+                    </div>
+
+                    <div class="class-card" data-class="mage">
+                        <div class="class-icon">🔮</div>
+                        <h2>Mage</h2>
+                        <p class="class-desc">Magic user with powerful spells and low health</p>
+                        <ul class="class-stats">
+                            <li>❤️ Health: 80</li>
+                            <li>✨ Magic: 35</li>
+                            <li>💧 Mana: 100</li>
+                            <li>💨 Speed: Fast</li>
+                        </ul>
+                        <button class="select-btn">Select</button>
+                    </div>
+
+                    <div class="class-card" data-class="rogue">
+                        <div class="class-icon">🗡️</div>
+                        <h2>Rogue</h2>
+                        <p class="class-desc">Fast and deadly with high critical strikes</p>
+                        <ul class="class-stats">
+                            <li>❤️ Health: 100</li>
+                            <li>⚔️ Attack: 30</li>
+                            <li>🎯 Crit Rate: 25%</li>
+                            <li>💨 Speed: Very Fast</li>
+                        </ul>
+                        <button class="select-btn">Select</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Menu -->
+        <div id="statsScreen" class="screen hidden">
+            <div class="menu-overlay">
+                <div class="menu-content">
+                    <div class="menu-header">
+                        <h2>📊 Character Stats</h2>
+                        <button id="closeStats" class="close-btn">✕</button>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <label>Class</label>
+                            <span id="statClass">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <label>Level</label>
+                            <span id="statLevel">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <label>Experience</label>
+                            <span id="statExp">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <label>Gold</label>
+                            <span id="statGold">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <label>Health</label>
+                            <span id="statHealth">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <label>Mana</label>
+                            <span id="statMana">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <label>Attack Power</label>
+                            <span id="statAttack">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <label>Defense</label>
+                            <span id="statDefense">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <label>Critical Rate</label>
+                            <span id="statCrit">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <label>Enemies Defeated</label>
+                            <span id="statEnemiesDefeated">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Menu -->
+        <div id="inventoryScreen" class="screen hidden">
+            <div class="menu-overlay">
+                <div class="menu-content">
+                    <div class="menu-header">
+                        <h2>🎒 Inventory</h2>
+                        <button id="closeInventory" class="close-btn">✕</button>
+                    </div>
+                    <div class="inventory-content">
+                        <div class="equipment-section">
+                            <h3>⚙️ Equipment</h3>
+                            <div id="equipmentList" class="item-list">
+                                <p class="empty-msg">No equipment equipped</p>
+                            </div>
+                        </div>
+                        <div class="items-section">
+                            <h3>🎁 Items</h3>
+                            <div id="itemsList" class="item-list">
+                                <p class="empty-msg">No items in inventory</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Skills Menu -->
+        <div id="skillsScreen" class="screen hidden">
+            <div class="menu-overlay">
+                <div class="menu-content">
+                    <div class="menu-header">
+                        <h2>⚡ Skills & Abilities</h2>
+                        <button id="closeSkills" class="close-btn">✕</button>
+                    </div>
+                    <div class="skills-content">
+                        <div id="skillsList" class="skills-list">
+                            <!-- Skills will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pause Menu -->
+        <div id="pauseScreen" class="screen hidden">
+            <div class="pause-overlay">
+                <div class="pause-content">
+                    <h1>⏸ PAUSED</h1>
+                    <div class="pause-buttons">
+                        <button id="resumeBtn" class="pause-btn">Resume</button>
+                        <button id="restartBtn" class="pause-btn">Restart</button>
+                        <button id="mainMenuBtn" class="pause-btn">Main Menu</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="screen hidden">
+            <div class="game-over-overlay">
+                <div class="game-over-content">
+                    <h1 id="gameOverTitle">GAME OVER</h1>
+                    <div id="gameOverStats" class="game-over-stats"></div>
+                    <div class="game-over-buttons">
+                        <button id="retryBtn" class="game-over-btn">Retry</button>
+                        <button id="menuBtn" class="game-over-btn">Main Menu</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    
+
     <script src="game.js"></script>
 </body>
 </html>
