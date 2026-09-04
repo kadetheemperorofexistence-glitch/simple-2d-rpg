@@ -54,6 +54,8 @@ const SKILLS = {
     ]
 };
 
+let gameInstance = null;
+
 class Player {
     constructor(playerClass) {
         const stats = CLASS_STATS[playerClass];
@@ -319,29 +321,66 @@ class Game {
     }
     
     setupEventListeners() {
-        // Class selection
+        // Class selection - bind with arrow function to preserve 'this'
         document.querySelectorAll('.class-card').forEach(card => {
-            card.querySelector('.select-btn').addEventListener('click', () => {
-                this.startGame(card.dataset.class);
+            card.querySelector('.select-btn').addEventListener('click', (e) => {
+                const classType = card.dataset.class;
+                console.log('Starting game with class:', classType);
+                this.startGame(classType);
             });
         });
         
-        // Menu buttons
-        document.getElementById('statsBtn').addEventListener('click', () => this.showStats());
-        document.getElementById('inventoryBtn').addEventListener('click', () => this.showInventory());
-        document.getElementById('skillsBtn').addEventListener('click', () => this.showSkills());
-        document.getElementById('pauseGameBtn').addEventListener('click', () => this.togglePause());
+        // Menu buttons - use arrow functions to preserve 'this'
+        const statsBtn = document.getElementById('statsBtn');
+        if (statsBtn) statsBtn.addEventListener('click', (e) => {
+            console.log('Stats clicked');
+            this.showStats();
+        });
         
-        document.getElementById('closeStats').addEventListener('click', () => this.hideScreen('statsScreen'));
-        document.getElementById('closeInventory').addEventListener('click', () => this.hideScreen('inventoryScreen'));
-        document.getElementById('closeSkills').addEventListener('click', () => this.hideScreen('skillsScreen'));
+        const inventoryBtn = document.getElementById('inventoryBtn');
+        if (inventoryBtn) inventoryBtn.addEventListener('click', (e) => {
+            console.log('Inventory clicked');
+            this.showInventory();
+        });
         
-        document.getElementById('resumeBtn').addEventListener('click', () => this.togglePause());
-        document.getElementById('restartBtn').addEventListener('click', () => this.restartGame());
-        document.getElementById('mainMenuBtn').addEventListener('click', () => this.returnToMenu());
+        const skillsBtn = document.getElementById('skillsBtn');
+        if (skillsBtn) skillsBtn.addEventListener('click', (e) => {
+            console.log('Skills clicked');
+            this.showSkills();
+        });
         
-        document.getElementById('retryBtn').addEventListener('click', () => this.restartGame());
-        document.getElementById('menuBtn').addEventListener('click', () => this.returnToMenu());
+        const pauseGameBtn = document.getElementById('pauseGameBtn');
+        if (pauseGameBtn) pauseGameBtn.addEventListener('click', (e) => {
+            console.log('Pause clicked');
+            this.togglePause();
+        });
+        
+        // Close buttons
+        const closeStats = document.getElementById('closeStats');
+        if (closeStats) closeStats.addEventListener('click', () => this.hideScreen('statsScreen'));
+        
+        const closeInventory = document.getElementById('closeInventory');
+        if (closeInventory) closeInventory.addEventListener('click', () => this.hideScreen('inventoryScreen'));
+        
+        const closeSkills = document.getElementById('closeSkills');
+        if (closeSkills) closeSkills.addEventListener('click', () => this.hideScreen('skillsScreen'));
+        
+        // Pause menu buttons
+        const resumeBtn = document.getElementById('resumeBtn');
+        if (resumeBtn) resumeBtn.addEventListener('click', () => this.togglePause());
+        
+        const restartBtn = document.getElementById('restartBtn');
+        if (restartBtn) restartBtn.addEventListener('click', () => this.restartGame());
+        
+        const mainMenuBtn = document.getElementById('mainMenuBtn');
+        if (mainMenuBtn) mainMenuBtn.addEventListener('click', () => this.returnToMenu());
+        
+        // Game over buttons
+        const retryBtn = document.getElementById('retryBtn');
+        if (retryBtn) retryBtn.addEventListener('click', () => this.restartGame());
+        
+        const menuBtn = document.getElementById('menuBtn');
+        if (menuBtn) menuBtn.addEventListener('click', () => this.returnToMenu());
         
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
@@ -367,9 +406,13 @@ class Game {
     }
     
     startGame(playerClass) {
+        console.log('Game starting with class:', playerClass);
         this.player = new Player(playerClass);
         this.enemies = [];
         this.obstacles = [];
+        this.isPaused = false;
+        this.isGameOver = false;
+        this.isWon = false;
         this.spawnEnemies(5 + this.player.level);
         this.spawnObstacles();
         this.showScreen('gameScreen');
@@ -491,6 +534,7 @@ class Game {
     }
     
     updateUI() {
+        if (!this.player) return;
         document.getElementById('playerName').textContent = this.player.name;
         document.getElementById('healthFill').style.width = (this.player.health / this.player.maxHealth * 100) + '%';
         document.getElementById('healthText').textContent = `${this.player.health}/${this.player.maxHealth}`;
@@ -503,6 +547,7 @@ class Game {
     }
     
     showStats() {
+        if (!this.player) return;
         const p = this.player;
         document.getElementById('statClass').textContent = CLASS_STATS[p.class].name;
         document.getElementById('statLevel').textContent = p.level;
@@ -518,6 +563,7 @@ class Game {
     }
     
     showInventory() {
+        if (!this.player) return;
         const equipList = document.getElementById('equipmentList');
         equipList.innerHTML = Object.keys(this.player.equipment).length > 0 ? 
             Object.entries(this.player.equipment).map(([key, item]) => 
@@ -534,6 +580,7 @@ class Game {
     }
     
     showSkills() {
+        if (!this.player) return;
         const skillsList = document.getElementById('skillsList');
         const skills = SKILLS[this.player.class] || [];
         skillsList.innerHTML = skills.map(skill => 
@@ -547,6 +594,7 @@ class Game {
     }
     
     togglePause() {
+        if (!this.player) return;
         this.isPaused = !this.isPaused;
         if (this.isPaused) {
             this.showScreen('pauseScreen');
@@ -582,6 +630,7 @@ class Game {
     }
     
     restartGame() {
+        if (!this.player) return;
         this.startGame(this.player.class);
     }
     
@@ -589,6 +638,8 @@ class Game {
         this.isGameOver = false;
         this.isWon = false;
         this.isPaused = false;
+        this.player = null;
+        this.enemies = [];
         this.showScreen('classScreen');
     }
     
@@ -604,5 +655,5 @@ class Game {
 
 // Initialize game
 window.addEventListener('load', () => {
-    new Game();
+    gameInstance = new Game();
 });
